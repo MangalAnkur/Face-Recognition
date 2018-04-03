@@ -1,0 +1,262 @@
+# Face-Recognition
+# Here the code of Eigen face algorithm for face recognition is given
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.Statement; 
+import java.sql.*;
+
+public class eigenfacealgo 
+{
+     private static int size=0; 
+     static final String JDBC_DRIVER="com.mysql.jdbc.Driver";
+	static final String DB_URL="jdbc:mysql://localhost/minor2";
+	//Database credentials
+        static final String USER="root";
+        static final String PASS="12345678";
+         byte b[];
+        byte blobAsBytes[];
+        byte inputblobAsBytes[];
+        byte[] arr = new byte[81135];
+        float weight =0;
+        float inputweight =0;
+        byte[][] fullarr = new byte[51][81135];
+        float[][] Qmatrix = new float[51][81135];
+        float[][] eigenface = new float[51][81135];
+        float[][] transeigenface = new float[81135][51];
+        float[][] Qtranspose = new float[81135][51];
+        float[][] covariance = new float[51][51];
+        float[][] Imageminusaverage = new float[51][81135];
+        float[] inputImageminusaverage = new float[81135];
+        float[][] transImageminusaverage = new float[81135][51];
+        float[] average= new float[81135];    //average matrix 
+        float[][] weightmatrix = new float[51][51];
+        float[] inputweightmatrix = new float[51];
+	
+   public  void imagematrix()
+   { 
+	Connection conn=null;
+	Statement stmt1=null;
+	try
+        {
+        Class.forName("com.mysql.jdbc.Driver");
+	conn=DriverManager.getConnection(DB_URL, USER, PASS);                         
+        stmt1 = conn.createStatement();
+        Blob blob;
+        for(int i=1;i<=50;i++)
+        {
+            ResultSet rs= stmt1.executeQuery("SELECT image FROM studentregis1 where id="+i);
+            while(rs.next())
+            {
+                 blob=rs.getBlob("image");
+                 b=blob.getBytes(1,(int)blob.length());
+                 int blobLength = (int) blob.length();
+                 blobAsBytes = blob.getBytes(1, blobLength);
+                 for (int j=0;j<blobAsBytes.length;j++)
+                 {
+                     arr[j]= (byte) (arr[j]+blobAsBytes[j]);   //add of matrix  
+                 }
+                 size=blobAsBytes.length;
+                 for(int j=0;j<size;j++)
+                 {
+                     fullarr[i][j]=blobAsBytes[j];
+                 }
+              //   for(int y=0;y<blobAsBytes.length;y++)
+                  //  System.out.println(arr[y]);
+                  
+            } 
+        }  
+       
+        //calculating average matrix
+        for(int cou=0;cou<size;cou++)
+            {
+                average[cou]=arr[cou];
+                 average[cou]=average[cou]/50;
+               // System.out.println(average[cou]);  //avareage face    
+            }
+        // caclulating total - average natrix
+          
+        for(int cou=0;cou<50;cou++)
+            {
+                for(int cou1=0;cou1<size;cou1++)
+                {
+                  Qmatrix[cou][cou1]=  (float)fullarr[cou][cou1]- average[cou1];  //Q matrix
+                  //System.out.println(Qmatrix[cou][cou1]);
+                }
+            }
+    /*  for(int cou=0;cou<50;cou++)
+            {
+                System.out.println("");
+                for(int cou1=0;cou1<size;cou1++)
+                {
+                    System.out.print(fullarr[cou][cou1]);
+                }
+            }*/
+      }  ///end try
+        
+      catch(ArrayIndexOutOfBoundsException e)
+      {
+         System.out.println(e); 
+      }  
+        catch(Exception e)
+      {
+         System.out.println(e); 
+      } 
+   }
+   public void covariance()
+   {
+     for(int i=0;i<size;i++)
+     {
+         for(int j=0;j<50;j++)
+         {
+             Qtranspose[i][j]=Qmatrix[j][i];
+            // System.out.println(Qtranspose[i][j]);
+         }
+     }
+     for(int i=0;i<50;i++)
+         for(int j=0;j<50;j++)
+             for(int k=0;k<size;k++)
+                 covariance[i][j]+=Qmatrix[i][k]*Qtranspose[k][j];
+     for(int i=0;i<50;i++)
+         for(int j=0;j<50;j++)
+         {
+             //System.out.println(covariance[i][j]);
+         }
+   }
+   public void EIGENFACE ()
+   {
+       try
+       {
+       for(int i=0;i<50;i++)
+         for(int j=0;j<size;j++)
+             for(int k=0;k<50;k++)
+                 eigenface[i][j]+=covariance[i][k]*fullarr[k][j]; 
+       
+        for(int i=0;i<size;i++)
+           {
+             for(int j=0;j<50;j++)
+                {
+                   transeigenface[i][j]=eigenface[j][i];
+                    //System.out.println(transeigenface[i][j]);
+                 }
+            }
+       }
+       catch(ArrayIndexOutOfBoundsException e)
+       {
+           System.out.println(e);
+       }
+   }
+   public void featurevecectororweight()
+   {
+       for(int i=0;i<51;i++)
+           for(int j=0;j<size;j++)
+           {
+               Imageminusaverage[i][j]=fullarr[i][j]-average[j];
+           }
+       for(int i=0;i<size;i++)
+           for(int j=0;j<51;j++)
+           {
+           transImageminusaverage[i][j]=Imageminusaverage[j][i];
+            //System.out.println(transImageminusaverage[i][j]);
+           }
+       for(int i=0;i<50;i++)
+         for(int j=0;j<50;j++)
+         {
+             weight=0;
+             for(int k=0;k<size;k++)
+             {
+               weight+= eigenface[j][k]*Imageminusaverage[i][k];
+             }
+             weightmatrix[i][j]=weight;
+         } 
+      /* for(int i=0;i<51;i++)
+         for(int j=0;j<51;j++)
+             System.out.println(weightmatrix[i][j]);*/
+       
+   }
+   public void inputimage()
+   {
+      Connection conn=null;
+	Statement stmt1=null;
+	try
+        {
+        Class.forName("com.mysql.jdbc.Driver");
+	System.out.println("Driver loaded");
+	conn=DriverManager.getConnection(DB_URL, USER, PASS);
+        System.out.println("connection established...");
+        stmt1 = conn.createStatement();
+        Blob blob;
+
+            ResultSet rs= stmt1.executeQuery("SELECT image FROM studentregis1 where id="+30);
+            while(rs.next())
+            {
+                 blob=rs.getBlob("image");
+                 b=blob.getBytes(1,(int)blob.length());
+                 int blobLength = (int) blob.length();
+                 inputblobAsBytes = blob.getBytes(1, blobLength);      
+            } 
+           /* for(int i=0;i<inputblobAsBytes.length;i++)
+            System.out.println(inputblobAsBytes[i]);*/
+       }  ///end try  
+        catch(Exception e)
+      {
+         System.out.println(e); 
+      } 
+   }
+   public void inputweight()
+   {
+           for(int i=0;i<inputblobAsBytes.length;i++)
+           {
+               inputImageminusaverage[i]=inputblobAsBytes[i]-average[i];
+           }
+      /* for(int i=0;i<size;i++)
+           for(int j=0;j<51;j++)
+           {
+           transImageminusaverage[i][j]=Imageminusaverage[j][i];
+            //System.out.println(transImageminusaverage[i][j]);
+           }*/
+       for(int i=0;i<51;i++)
+       {
+             inputweight=0;
+             for(int k=0;k<inputblobAsBytes.length;k++)
+             {
+               inputweight+= eigenface[i][k]*inputImageminusaverage[k];
+             }
+             inputweightmatrix[i]=inputweight;
+            // System.out.println(inputweightmatrix[i]);
+         } 
+   }
+   public void output()
+   {
+       try{
+           //System.out.println(df.format(f));
+       int count=0;
+       float diff=1;
+       for(int i=0;i<51;i++)
+       {
+          diff=inputweightmatrix[i]-weightmatrix[30][i]; 
+             if(diff<0.00009)
+             {
+                   count++;
+             }
+             System.out.println(inputweightmatrix[i] +"   "+weightmatrix[30][i]);
+           
+       }
+       System.out.println("count "+count);
+       }
+       catch(Exception e)
+       {
+            System.out.println(e);
+       }
+   }
+   public static void main(String args[])
+   {
+       eigenfacealgo  ob=new eigenfacealgo ();
+       ob.imagematrix();
+       ob.covariance();
+       ob.EIGENFACE();
+       ob.featurevecectororweight();
+       ob.inputimage();
+       ob.inputweight();
+       ob.output();
+   }
+}
